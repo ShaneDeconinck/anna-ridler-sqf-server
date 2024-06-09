@@ -45,47 +45,23 @@ app.get('/:file.svg', (req, res) => {
 
     const svgPath = path.join(__dirname, '../images', `${file}.svg`);
 
-    const { opacityFade, opacityImage } = calculateOpacity();
-
-    let buffer = '';
-    let stylesModified = false;
-
-    const readStream = fs.createReadStream(svgPath, { encoding: 'utf8' });
-
-    readStream.on('data', (chunk) => {
-        if (!stylesModified) {
-            buffer += chunk;
-            const styleEndIndex = buffer.indexOf('</style>');
-
-            if (styleEndIndex !== -1) {
-                const styleSection = buffer.substring(0, styleEndIndex + 8);
-                const restOfFile = buffer.substring(styleEndIndex + 8);
-
-                const modifiedStyleSection = styleSection
-                    .replace(/\.cls-8\s*\{[^\}]*\}/, `.cls-8 { opacity: ${opacityImage}; }`)
-                    .replace(/\.cls-9\s*\{[^\}]*\}/, `.cls-9 { opacity: ${opacityFade}; }`);
-
-                const modifiedSvg = modifiedStyleSection + restOfFile;
-
-                // Cache the modified SVG content
-                cache.set(file, modifiedSvg);
-
-                res.setHeader('Content-Type', 'image/svg+xml');
-                res.write(modifiedSvg);
-
-                stylesModified = true;
-            }
-        } else {
-            res.write(chunk);
+    fs.readFile(svgPath, 'utf8', (err, data) => {
+        if (err) {
+            return res.status(500).send('Error reading SVG file.');
         }
-    });
 
-    readStream.on('end', () => {
-        res.end();
-    });
+        const { opacityFade, opacityImage } = calculateOpacity();
 
-    readStream.on('error', (err) => {
-        res.status(500).send('Error reading SVG file.');
+        // Create new style definitions
+        const modifiedSvg = data
+            .replace(/\.cls-8\s*\{[^\}]*\}/, `.cls-8 { opacity: ${opacityImage}; }`)
+            .replace(/\.cls-9\s*\{[^\}]*\}/, `.cls-9 { opacity: ${opacityFade}; }`);
+
+        // Cache the modified SVG content
+        cache.set(file, modifiedSvg);
+
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.send(modifiedSvg);
     });
 });
 
