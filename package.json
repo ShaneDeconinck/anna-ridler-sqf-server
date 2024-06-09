@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "serve": "node src/server.js",
-    "test": "mocha"
+    "serve": "node src/server.js"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "node-cache": "^5.1.2"
   },
   "devDependencies": {
     "chai": "^5.1.1",

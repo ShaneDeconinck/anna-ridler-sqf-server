@@ -1,9 +1,11 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const NodeCache = require('node-cache');
 
 const app = express();
 const port = 3000;
+const cache = new NodeCache({ stdTTL: 3600 }); // Cache TTL set to 1 hour
 
 // Define the start and end dates
 const startDate = new Date('2024-06-09');
@@ -34,22 +36,56 @@ app.get('/:file.svg', (req, res) => {
         return res.status(404).send('File not found.');
     }
 
+    // Check if the SVG is in the cache
+    const cachedSvg = cache.get(file);
+    if (cachedSvg) {
+        res.setHeader('Content-Type', 'image/svg+xml');
+        return res.send(cachedSvg);
+    }
+
     const svgPath = path.join(__dirname, '../images', `${file}.svg`);
 
-    fs.readFile(svgPath, 'utf8', (err, data) => {
-        if (err) {
-            return res.status(500).send('Error reading SVG file.');
+    const { opacityFade, opacityImage } = calculateOpacity();
+
+    let buffer = '';
+    let stylesModified = false;
+
+    const readStream = fs.createReadStream(svgPath, { encoding: 'utf8' });
+
+    readStream.on('data', (chunk) => {
+        if (!stylesModified) {
+            buffer += chunk;
+            const styleEndIndex = buffer.indexOf('</style>');
+
+            if (styleEndIndex !== -1) {
+                const styleSection = buffer.substring(0, styleEndIndex + 8);
+                const restOfFile = buffer.substring(styleEndIndex + 8);
+
+                const modifiedStyleSection = styleSection
+                    .replace(/\.cls-8\s*\{[^\}]*\}/, `.cls-8 { opacity: ${opacityImage}; }`)
+                    .replace(/\.cls-9\s*\{[^\}]*\}/, `.cls-9 { opacity: ${opacityFade}; }`);
+
+                const modifiedSvg = modifiedStyleSection + restOfFile;
+
+                // Cache the modified SVG content
+                cache.set(file, modifiedSvg);
+
+                res.setHeader('Content-Type', 'image/svg+xml');
+                res.write(modifiedSvg);
+
+                stylesModified = true;
+            }
+        } else {
+            res.write(chunk);
         }
+    });
 
-        const { opacityFade, opacityImage } = calculateOpacity();
+    readStream.on('end', () => {
+        res.end();
+    });
 
-        // Create new style definitions
-        const modifiedSvg = data
-            .replace(/\.cls-8\s*\{[^\}]*\}/g, `.cls-8 { opacity: ${opacityImage}; }`)
-            .replace(/\.cls-9\s*\{[^\}]*\}/g, `.cls-9 { opacity: ${opacityFade}; }`);
-
-        res.setHeader('Content-Type', 'image/svg+xml');
-        res.send(modifiedSvg);
+    readStream.on('error', (err) => {
+        res.status(500).send('Error reading SVG file.');
     });
 });
 
