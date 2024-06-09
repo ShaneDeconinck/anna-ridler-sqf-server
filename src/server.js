@@ -45,23 +45,51 @@ app.get('/:file.svg', (req, res) => {
 
     const svgPath = path.join(__dirname, '../images', `${file}.svg`);
 
-    fs.readFile(svgPath, 'utf8', (err, data) => {
-        if (err) {
-            return res.status(500).send('Error reading SVG file.');
+    const { opacityFade, opacityImage } = calculateOpacity();
+
+    let buffer = '';
+    let stylesModified = false;
+
+    const readStream = fs.createReadStream(svgPath, { encoding: 'utf8' });
+
+    readStream.on('data', (chunk) => {
+        if (!stylesModified) {
+            buffer += chunk;
+            const styleEndIndex = buffer.indexOf('</style>');
+
+            if (styleEndIndex !== -1) {
+                const styleSection = buffer.substring(0, styleEndIndex + 8);
+                const restOfFile = buffer.substring(styleEndIndex + 8);
+
+                const modifiedStyleSection = styleSection
+                    .replace(/\.cls-8\s*\{[^\}]*\}/, `.cls-8 { opacity: ${opacityImage}; }`)
+                    .replace(/\.cls-9\s*\{[^\}]*\}/, `.cls-9 { opacity: ${opacityFade}; }`);
+
+                buffer = modifiedStyleSection + restOfFile;
+                stylesModified = true;
+            }
+        } else {
+            buffer += chunk;
+        }
+    });
+
+    readStream.on('end', () => {
+        if (!stylesModified) {
+            // If styles were not found and modified
+            buffer = buffer
+                .replace(/\.cls-8\s*\{[^\}]*\}/, `.cls-8 { opacity: ${opacityImage}; }`)
+                .replace(/\.cls-9\s*\{[^\}]*\}/, `.cls-9 { opacity: ${opacityFade}; }`);
         }
 
-        const { opacityFade, opacityImage } = calculateOpacity();
-
-        // Create new style definitions
-        const modifiedSvg = data
-            .replace(/\.cls-8\s*\{[^\}]*\}/, `.cls-8 { opacity: ${opacityImage}; }`)
-            .replace(/\.cls-9\s*\{[^\}]*\}/, `.cls-9 { opacity: ${opacityFade}; }`);
-
         // Cache the modified SVG content
-        cache.set(file, modifiedSvg);
+        cache.set(file, buffer);
 
         res.setHeader('Content-Type', 'image/svg+xml');
-        res.send(modifiedSvg);
+        res.send(buffer);
+    });
+
+    readStream.on('error', (err) => {
+        res.status(500).send('Error reading SVG file.');
     });
 });
 
