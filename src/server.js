@@ -62,8 +62,8 @@ app.get('/:file.svg', (req, res) => {
                 const restOfFile = buffer.substring(styleEndIndex + 8);
 
                 const modifiedStyleSection = styleSection
-                    .replace(/\.cls-8\s*\{[^\}]*\}/, `.cls-8 { opacity: ${opacityImage}; }`)
-                    .replace(/\.cls-9\s*\{[^\}]*\}/, `.cls-9 { opacity: ${opacityFade}; }`);
+                    .replace(/\.cls-8\s*\{[^\}]*\}/, `.cls-8 { opacity: ${opacityFade}; }`)
+                    .replace(/\.cls-9\s*\{[^\}]*\}/, `.cls-9 { opacity: ${opacityImage}; }`);
 
                 buffer = modifiedStyleSection + restOfFile;
                 stylesModified = true;
