@@ -8,8 +8,8 @@ const port = 3000;
 const cache = new NodeCache({ stdTTL: 3600 }); // Cache TTL set to 1 hour
 
 // Define the start and end dates
-const startDate = new Date('2024-06-09');
-const endDate = new Date('2032-06-09');
+const startDate = new Date('2024-06-10');
+const endDate = new Date('2032-06-10');
 
 // Function to calculate opacity values based on the current date
 const calculateOpacity = () => {
@@ -30,7 +30,7 @@ const calculateOpacity = () => {
 // Route handler for SVG files
 app.get('/:file.svg', (req, res) => {
     const { file } = req.params;
-    const validFiles = ['i', 'ii', 'iii'];
+    const validFiles = ['1-1', '1-2', '1-3'];
 
     if (!validFiles.includes(file)) {
         return res.status(404).send('File not found.');
